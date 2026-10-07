@@ -14,6 +14,8 @@ terminal environment variables, so choosing the directory explicitly is useful f
 The original Codex two-meter menu bar icon shows **remaining** quota. Click for 5-hour, weekly, monthly and additional
 model windows supplied by the service, plus countdowns (hover a quota row for its exact reset date). Refresh manually or
 every 1, 5, 15 or 30 minutes. Optional launch at login is available in Settings.
+The original pace stripe and reserve/deficit/estimated-exhaustion text use upstream UsagePace
+calculations from elapsed time and quota usage; no transcript scanning or stored history is needed.
 
 When Codex changes its auth file, Lite clears the previous account's display, cancels its pending
 request and reads the current login again. File and directory events handle in-place writes, atomic
@@ -31,6 +33,26 @@ The native NSMenu, 310pt quota card, 6pt progress bars, Codex icon geometry, and
 sidebar retain upstream CodexBar styling. Settings keep General, Codex and About; removed features
 do not leave empty tabs. Upstream settings materials, sizing, sidebar resize handle and metric-header
 layout are reused. `--settings` opens Settings at launch for UI verification.
+
+### Upstream UI extraction (v0.3.1)
+
+All source references below are from `8ab81e2eb`; MIT attribution is retained.
+
+| Retained UI | Original implementation | Lite adaptation |
+| --- | --- | --- |
+| Status icon | `IconRenderer.swift`, Codex descriptor `visibleWindows` | Keep Codex drawing/context/face; remove other providers, credits, morph cache and service-status overlays. Adapter maps current quota windows. |
+| Pace forecast | Core `UsagePace.swift`, app `UsagePaceText.swift`, `MenuCardView+ModelHelpers.swift` | Keep calculation, 3% initial-window threshold, stages and wording; specialize to Codex without history forecasts. |
+| Progress and metric rows | `UsageProgressBar.swift`, `MenuCardMetricRow.swift`, `MetricRowHeader` | Original renderer and layout, with a smaller input model. |
+| Settings metric rows | `ProviderMetricInlineRow`, `ProviderDetailInfoRow` | Original row layout, current account only. |
+| Refresh picker | `PreferencesMenuPicker.swift` | Original menu-backed control; supported intervals unchanged. |
+| Plan and update text | `CodexPlanFormatting.swift`, `UsageFormatter.swift`, zh-Hans strings | Original formatting helpers and translations. |
+| Settings shell / About | `PreferencesView.swift`, `SidebarResizeHandle.swift`, `PreferencesAboutPane.swift` | Preserve shell/materials/geometry and About styling; omit removed feature panes and updater. |
+
+Validation: 37 offline tests pass. A scratch comparison compiled the original upstream icon renderer
+with Codex-only descriptor fixtures, comparing 120 RGBA bitmap outputs against the extracted renderer
+across light/dark, fresh/stale, missing/empty/partial/full quotas. All matched. The reference cache was
+bypassed using a sub-visual blink value to avoid cross-appearance cache reuse. UI interaction testing
+remains manual at the user's request; these comparisons do not claim every window is pixel-identical.
 
 ## Scope
 

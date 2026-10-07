@@ -1,5 +1,6 @@
 // Sidebar, grouped forms and dimensions adapted from upstream PreferencesView (MIT).
 import AppKit
+import CodexBarLiteCore
 import Observation
 import SwiftUI
 
@@ -36,6 +37,7 @@ struct SettingsView: View {
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage("settingsSidebarWidth") private var sidebarWidth: Double = SettingsPane.sidebarWidth
     @State private var detailTitlebarInset: CGFloat = 0
+    @State private var iconHover = false
 
     private static let providerIcon: NSImage = {
         let bundle = Bundle.main.url(forResource: "CodexBarLite_CodexBarLite", withExtension: "bundle")
@@ -145,11 +147,12 @@ struct SettingsView: View {
                 .disabled(self.model.isDemo)
         }
         Section("刷新") {
-            Picker("刷新间隔", selection: Binding(
-                get: { self.model.configuration.refreshMinutes }, set: { self.model.setInterval($0) }))
-            {
-                ForEach([1, 5, 15, 30], id: \.self) { Text("每 \($0) 分钟").tag($0) }
-            }
+            SettingsMenuPicker(
+                selection: Binding(
+                    get: { self.model.configuration.refreshMinutes }, set: { self.model.setInterval($0) }),
+                options: [1, 5, 15, 30],
+                label: { Text("刷新间隔") },
+                optionLabel: { Text("每 \($0) 分钟") })
         }
         if self.model.isDemo {
             Section { SettingsSectionFooter("演示模式使用模拟额度，不读取或修改登录文件。") }
@@ -159,18 +162,43 @@ struct SettingsView: View {
     @ViewBuilder
     private var codex: some View {
         Section {
-            LabeledContent("账号", value: self.model.status?.snapshot?.email ?? "等待读取当前登录")
-            if let plan = self.model.status?.snapshot?.plan { LabeledContent("套餐", value: plan.capitalized) }
+            HStack(alignment: .center, spacing: 12) {
+                Image(nsImage: Self.providerIcon).resizable().scaledToFit()
+                    .frame(width: 28, height: 28).foregroundStyle(.secondary).accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Codex").font(.title3.weight(.semibold))
+                    Text("Codex 当前登录").font(.footnote).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 12)
+                Button { self.model.refreshNow() } label: { Image(systemName: "arrow.clockwise") }
+                    .buttonStyle(.borderless).help(L("Refresh"))
+                    .disabled(self.model.refresh.isRefreshing)
+            }
+            .padding(.vertical, 2)
+            ProviderDetailInfoRow(label: "来源", value: "Codex OAuth")
+            if let updated = self.model.status?.snapshot?.updatedAt {
+                ProviderDetailInfoRow(label: "更新", value: UsageFormatter.updatedString(from: updated))
+            }
+            ProviderDetailInfoRow(label: "账号", value: self.model.status?.snapshot?.email ?? "等待读取当前登录")
+            if let plan = self.model.status?.snapshot?.plan {
+                ProviderDetailInfoRow(label: "套餐", value: CodexPlanFormatting.displayName(plan) ?? plan)
+            }
             if let error = self.model.status?.error { Text(error).foregroundStyle(.red) }
+        }
+        Section("用量") {
             if let snapshot = self.model.status?.snapshot {
-                ForEach(snapshot.windows) { window in
-                    QuotaView(window: window, now: Date())
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(snapshot.windows) { window in
+                            let metric = QuotaPresentation.metric(window: window, now: context.date)
+                            ProviderMetricInlineRow(
+                                metric: metric,
+                                title: metric.title,
+                                progressColor: Color(red: 73 / 255, green: 163 / 255, blue: 176 / 255))
+                        }
+                    }
                 }
             }
-            Button(self.model.refresh.isRefreshing ? "正在刷新…" : "刷新") { self.model.refreshNow() }
-                .disabled(self.model.refresh.isRefreshing)
-        } header: {
-            Text("用量")
         }
         Section {
             LabeledContent("来源", value: "Codex 当前登录")
@@ -196,18 +224,36 @@ struct SettingsView: View {
         Section {
             VStack(spacing: 10) {
                 if let image = NSApplication.shared.applicationIconImage {
-                    Image(nsImage: image).resizable().frame(width: 92, height: 92).cornerRadius(16)
+                    Button {
+                        NSWorkspace.shared.open(URL(string: "https://github.com/ccffhasflf/CodexBar")!)
+                    } label: {
+                        Image(nsImage: image).resizable().frame(width: 92, height: 92).cornerRadius(16)
+                            .scaleEffect(self.iconHover ? 1.05 : 1.0)
+                            .shadow(color: self.iconHover ? .accentColor.opacity(0.25) : .clear, radius: 6)
+                    }
+                    .buttonStyle(.plain).focusEffectDisabled()
+                    .onHover { hovering in
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) { self.iconHover = hovering }
+                    }
                 }
-                Text("CodexBar Lite").font(.title.bold())
-                Text("0.3.0").font(.subheadline).foregroundStyle(.secondary)
-                Text("基于 CodexBar 的 Codex 专用精简版").foregroundStyle(.secondary)
+                VStack(spacing: 2) {
+                    Text("CodexBar Lite").font(.title3).bold()
+                    Text("0.3.1").foregroundStyle(.secondary)
+                    Text("基于 CodexBar 的 Codex 专用精简版").font(.footnote).foregroundStyle(.secondary)
+                }
             }
-            .frame(maxWidth: .infinity).padding(.vertical, 16)
+            .frame(maxWidth: .infinity).padding(.vertical, 6)
             .listRowBackground(Color.clear)
         }
         Section("链接") {
-            Link("源代码", destination: URL(string: "https://github.com/ccffhasflf/CodexBar")!)
-            Link("原版 CodexBar", destination: URL(string: "https://github.com/steipete/CodexBar")!)
+            AboutLinkRow(
+                icon: "chevron.left.slash.chevron.right",
+                title: "源代码",
+                url: "https://github.com/ccffhasflf/CodexBar")
+            AboutLinkRow(
+                icon: "chevron.left.slash.chevron.right",
+                title: "原版 CodexBar",
+                url: "https://github.com/steipete/CodexBar")
         }
         Section { SettingsSectionFooter("MIT License · Peter Steinberger 与 CodexBar 贡献者") }
     }
@@ -220,5 +266,20 @@ struct SettingsView: View {
         panel.showsHiddenFiles = true
         panel.allowsMultipleSelection = false
         if panel.runModal() == .OK, let url = panel.url { self.model.setHome(url) }
+    }
+}
+
+private struct ProviderDetailInfoRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        LabeledContent(self.label) {
+            Text(self.value)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.trailing)
+                .lineLimit(2)
+                .textSelection(.enabled)
+        }
     }
 }

@@ -1,4 +1,4 @@
-// Retained from upstream CodexBar (MIT).
+// Upstream CodexBar (MIT).
 import SwiftUI
 
 struct MetricRowHeader: View {
@@ -55,7 +55,7 @@ struct MetricRowHeader: View {
     private func resetLabel(_ resetText: String) -> some View {
         Text(resetText)
             .font(.footnote)
-            .foregroundStyle(Color(nsColor: .secondaryLabelColor))
+            .foregroundStyle(MenuHighlightStyle.secondary(self.isHighlighted))
             .lineLimit(2)
             .multilineTextAlignment(.trailing)
     }

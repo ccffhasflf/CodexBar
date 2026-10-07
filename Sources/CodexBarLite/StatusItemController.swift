@@ -51,7 +51,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         self.addAction("刷新", action: #selector(self.refresh), key: "r", image: "arrow.clockwise")
         self.addAction("设置…", action: #selector(self.showSettings), key: ",", image: "gearshape")
         self.addAction("关于 CodexBar Lite", action: #selector(self.showAbout), image: "info.circle")
-        self.addAction("退出", action: #selector(self.quit), key: "q", image: "power")
+        self.addAction("退出", action: #selector(self.quit), key: "q", image: "xmark.rectangle")
     }
 
     func menuDidClose(_ menu: NSMenu) {

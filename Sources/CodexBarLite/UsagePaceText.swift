@@ -1,0 +1,134 @@
+// Upstream CodexBar (MIT); provider specialized to Codex, session-history equivalents omitted.
+import CodexBarLiteCore
+import Foundation
+
+enum UsagePaceText {
+    struct WeeklyDetail {
+        let leftLabel: String
+        let rightLabel: String?
+        let expectedUsedPercent: Double
+        let stage: UsagePace.Stage
+    }
+
+    private enum DetailContext {
+        case session
+        case weekly
+    }
+
+    static func weeklySummary(pace: UsagePace, now: Date = .init()) -> String {
+        let detail = self.weeklyDetail(pace: pace, now: now)
+        if let rightLabel = detail.rightLabel {
+            return L("Pace: %@ · %@", detail.leftLabel, rightLabel)
+        }
+        return L("Pace: %@", detail.leftLabel)
+    }
+
+    static func weeklyDetail(pace: UsagePace, now: Date = .init()) -> WeeklyDetail {
+        WeeklyDetail(
+            leftLabel: self.detailLeftLabel(for: pace),
+            rightLabel: self.detailRightLabel(for: pace, context: .weekly, now: now),
+            expectedUsedPercent: pace.expectedUsedPercent,
+            stage: pace.stage)
+    }
+
+    private static func detailLeftLabel(for pace: UsagePace) -> String {
+        let deltaValue = Int(abs(pace.deltaPercent).rounded())
+        if deltaValue == 0 {
+            return L("On pace")
+        }
+        switch pace.stage {
+        case .onTrack:
+            return L("On pace")
+        case .slightlyAhead, .ahead, .farAhead:
+            return L("%d%% in deficit", deltaValue)
+        case .slightlyBehind, .behind, .farBehind:
+            return L("%d%% in reserve", deltaValue)
+        }
+    }
+
+    private static func detailRightLabel(
+        for pace: UsagePace,
+        context: DetailContext,
+        now: Date) -> String?
+    {
+        let etaLabel: String?
+        if pace.willLastToReset {
+            etaLabel = self.combinedLastsLabel(for: pace)
+        } else if let etaSeconds = pace.etaSeconds {
+            let etaText = Self.durationText(seconds: etaSeconds, now: now)
+            if context == .session {
+                etaLabel = etaText == "now" ? L("Projected empty now") : L("Projected empty in %@", etaText)
+            } else {
+                etaLabel = etaText == "now" ? L("Runs out now") : L("Runs out in %@", etaText)
+            }
+        } else {
+            etaLabel = nil
+        }
+
+        guard let runOutProbability = pace.runOutProbability else { return etaLabel }
+        let roundedRisk = self.roundedRiskPercent(runOutProbability)
+        let riskLabel = L("(%d%% risk)", roundedRisk)
+        if let etaLabel {
+            return L("%@ %@", etaLabel, riskLabel)
+        }
+        return riskLabel
+    }
+
+    private static func combinedLastsLabel(for pace: UsagePace) -> String {
+        guard let speedLabel = self.speedHintLabel(for: pace) else {
+            return L("Lasts until reset")
+        }
+        return L("%@ · %@", L("Lasts until reset"), speedLabel)
+    }
+
+    private static func speedHintLabel(for pace: UsagePace) -> String? {
+        guard pace.deltaPercent < -15,
+              let multiplier = pace.speedMultiplierToReset,
+              multiplier >= 1.5
+        else { return nil }
+        return L("1.5× headroom")
+    }
+
+    private static func durationText(seconds: TimeInterval, now: Date) -> String {
+        let date = now.addingTimeInterval(seconds)
+        let countdown = UsageFormatter.resetCountdownDescription(from: date, now: now)
+        if countdown == "now" {
+            return "now"
+        }
+        if countdown.hasPrefix("in ") {
+            return String(countdown.dropFirst(3))
+        }
+        return countdown
+    }
+
+    private static func roundedRiskPercent(_ probability: Double) -> Int {
+        let percent = min(1, max(0, probability)) * 100
+        let rounded = (percent / 5).rounded() * 5
+        return Int(rounded)
+    }
+
+    static func sessionPace(window: RateWindow, now: Date) -> UsagePace? {
+        guard window.windowMinutes != 10080, window.windowMinutes != 30 * 24 * 60 else { return nil }
+        guard window.remainingPercent > 0 else { return nil }
+        guard let pace = UsagePace.weekly(window: window, now: now, defaultWindowMinutes: 300) else { return nil }
+        guard pace.expectedUsedPercent >= 3 else { return nil }
+        return pace
+    }
+
+    static func sessionDetail(window: RateWindow, now: Date = .init()) -> WeeklyDetail? {
+        guard let pace = sessionPace(window: window, now: now) else { return nil }
+        return WeeklyDetail(
+            leftLabel: Self.detailLeftLabel(for: pace),
+            rightLabel: Self.detailRightLabel(for: pace, context: .session, now: now),
+            expectedUsedPercent: pace.expectedUsedPercent,
+            stage: pace.stage)
+    }
+
+    static func sessionSummary(window: RateWindow, now: Date = .init()) -> String? {
+        guard let detail = sessionDetail(window: window, now: now) else { return nil }
+        if let rightLabel = detail.rightLabel {
+            return L("Pace: %@ · %@", detail.leftLabel, rightLabel)
+        }
+        return L("Pace: %@", detail.leftLabel)
+    }
+}
