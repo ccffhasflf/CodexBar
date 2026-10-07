@@ -1,4 +1,5 @@
 // Upstream CodexBar (MIT), display helpers retained verbatim.
+import CodexBarLiteCore
 import Foundation
 
 enum UsageFormatter {
@@ -35,6 +36,56 @@ enum UsageFormatter {
         let seconds = date.timeIntervalSince(now)
         guard let minutes = Int(exactly: ceil(seconds / 60)) else { return nil }
         return seconds < 1 ? 0 : max(1, minutes)
+    }
+
+    static func resetDescription(from date: Date, now: Date = .init()) -> String {
+        // Human-friendly phrasing: today / tomorrow / date+time.
+        let calendar = Calendar.current
+        if calendar.isDate(date, inSameDayAs: now) {
+            return date.formatted(.dateTime.hour().minute().locale(Locale(identifier: "zh-Hans")))
+        }
+        if let tomorrow = calendar.date(byAdding: .day, value: 1, to: now),
+           calendar.isDate(date, inSameDayAs: tomorrow)
+        {
+            let timeStr = date.formatted(.dateTime.hour().minute().locale(Locale(identifier: "zh-Hans")))
+            return L("reset_tomorrow_format", timeStr)
+        }
+        return date.formatted(.dateTime.month(.abbreviated).day().hour().minute().locale(Locale(identifier: "zh-Hans")))
+    }
+
+    static func resetLine(
+        for window: RateWindow,
+        style: ResetTimeDisplayStyle,
+        now: Date = .init()) -> String?
+    {
+        if let date = window.resetsAt, self.resetCountdownMinutes(from: date, now: now) != nil {
+            if style == .countdown {
+                let countdown = self.resetCountdownDescription(from: date, now: now)
+                if countdown == "now" {
+                    return L("Resets now")
+                }
+                if countdown.hasPrefix("in ") {
+                    return L("Resets in %@", String(countdown.dropFirst(3)))
+                }
+                return L("Resets %@", countdown)
+            }
+            let text = self.resetDescription(from: date, now: now)
+            return L("Resets %@", text)
+        }
+
+        if let desc = window.resetDescription {
+            let trimmed = desc.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return nil }
+            let lowercased = trimmed.lowercased()
+            for prefix in ["resets in ", "reset in "] where lowercased.hasPrefix(prefix) {
+                return L("Resets in %@", String(trimmed.dropFirst(prefix.count)))
+            }
+            for prefix in ["resets ", "reset "] where lowercased.hasPrefix(prefix) {
+                return L("Resets %@", String(trimmed.dropFirst(prefix.count)))
+            }
+            return L("Resets %@", trimmed)
+        }
+        return nil
     }
 
     static func cleanPlanName(_ text: String) -> String {

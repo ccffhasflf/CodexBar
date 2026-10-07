@@ -38,6 +38,22 @@ func L(_ key: String, _ arguments: CVarArg...) -> String {
         "workday_tick_appearance_hidden": "隐藏",
         "workday_tick_appearance_high_contrast": "高对比度",
         "workday_tick_appearance_subtle": "柔和",
+        "Limit Reset Credits": "限额重置额度",
+        "1 available": "1 次可用",
+        "%d available": "%d 次可用",
+        "Expires %@": "%@ 到期",
+        "No expiry": "永不过期",
+        "now": "现在",
+        "Resets %@": "重置于 %@",
+        "reset_tomorrow_format": "明天 %@",
+        "reset_times_title": "重置时间",
+        "reset_times_countdown": "倒计时",
+        "reset_times_clock": "时钟时间",
+        "section_usage": "用量",
     ]
-    return String(format: translations[key] ?? key, locale: Locale(identifier: "zh-Hans"), arguments: arguments)
+    let format = translations[key] ?? key
+    return arguments.isEmpty ? format : String(
+        format: format,
+        locale: Locale(identifier: "zh-Hans"),
+        arguments: arguments)
 }

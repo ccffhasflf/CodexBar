@@ -16,7 +16,19 @@ struct MenuView: View {
                         .padding(.bottom, UsageMenuCardLayout.postHeaderDividerContentSpacing)
                     VStack(alignment: .leading, spacing: 12) {
                         ForEach(snapshot.windows) { window in
-                            QuotaView(window: window, now: context.date)
+                            QuotaView(
+                                window: window,
+                                now: context.date,
+                                resetStyle: self.model.configuration.resetTimeDisplayStyle)
+                        }
+                        if let credits = snapshot.resetCredits,
+                           let presentation = LimitResetCreditsPresentation.make(
+                               snapshot: credits,
+                               resetStyle: self.model.configuration.resetTimeDisplayStyle,
+                               now: context.date)
+                        {
+                            if !snapshot.windows.isEmpty { Divider() }
+                            LimitResetCreditsContent(presentation: presentation)
                         }
                     }
                     .opacity(self.model.status?.error == nil ? 1 : 0.5)
@@ -70,9 +82,10 @@ struct MenuView: View {
 struct QuotaView: View {
     let window: QuotaWindow
     let now: Date
+    var resetStyle: ResetTimeDisplayStyle = .countdown
 
     var body: some View {
-        let metric = QuotaPresentation.metric(window: self.window, now: self.now)
+        let metric = QuotaPresentation.metric(window: self.window, now: self.now, resetStyle: self.resetStyle)
         MetricRow(
             metric: metric,
             layoutMetric: metric,

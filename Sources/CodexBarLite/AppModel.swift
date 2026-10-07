@@ -12,7 +12,22 @@ struct DemoUsageClient: UsageLoading {
           "secondary_window":{"used_percent":46,
             "reset_at":\(Int(Date().timeIntervalSince1970) + 259_200),"limit_window_seconds":604800}}}
         """
-        return try UsageSnapshot.decode(Data(response.utf8), email: "preview@example.com")
+        var snapshot = try UsageSnapshot.decode(Data(response.utf8), email: "preview@example.com")
+        let now = snapshot.updatedAt
+        snapshot.resetCredits = CodexRateLimitResetCreditsSnapshot(
+            credits: [CodexRateLimitResetCredit(
+                id: "demo-reset-credit",
+                resetType: "weekly",
+                status: .available,
+                grantedAt: now,
+                expiresAt: now.addingTimeInterval(86400),
+                redeemStartedAt: nil,
+                redeemedAt: nil,
+                title: nil,
+                description: nil)],
+            availableCount: 1,
+            updatedAt: now)
+        return snapshot
     }
 }
 
@@ -158,6 +173,12 @@ final class AppModel {
         var config = self.configuration
         config.refreshMinutes = minutes
         do { try self.persist(config); self.schedule() } catch { self.notice = error.localizedDescription }
+    }
+
+    func setResetTimeDisplayStyle(_ style: ResetTimeDisplayStyle) {
+        var config = self.configuration
+        config.resetTimeDisplayStyle = style
+        do { try self.persist(config) } catch { self.notice = error.localizedDescription }
     }
 
     func setHome(_ home: URL?) {

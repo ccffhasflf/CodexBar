@@ -32,6 +32,7 @@ public struct UsageSnapshot: Equatable, Sendable {
     public let accountID: String?
     public let windows: [QuotaWindow]
     public let updatedAt: Date
+    public var resetCredits: CodexRateLimitResetCreditsSnapshot?
 
     public var menuWindow: QuotaWindow? {
         // A fully exhausted weekly cap binds even if the short window still has room.
@@ -40,7 +41,9 @@ public struct UsageSnapshot: Equatable, Sendable {
             ?? self.windows.first
     }
 
-    public static func decode(_ data: Data, email: String?, now: Date = Date()) throws -> Self {
+    public static func decode(
+        _ data: Data, email: String?, now: Date = Date(), allowEmptyWindows: Bool = false) throws -> Self
+    {
         let response = try JSONDecoder().decode(CodexUsageResponse.self, from: data)
         var windows: [QuotaWindow] = []
         var ids = Set<String>()
@@ -89,7 +92,7 @@ public struct UsageSnapshot: Equatable, Sendable {
             append(extra.rateLimit?.primaryWindow, prefix: title, position: 0)
             append(extra.rateLimit?.secondaryWindow, prefix: title, position: 1)
         }
-        guard !windows.isEmpty else { throw LiteError.noQuota }
+        guard allowEmptyWindows || !windows.isEmpty else { throw LiteError.noQuota }
         return Self(
             email: email,
             plan: response.planType?.rawValue,

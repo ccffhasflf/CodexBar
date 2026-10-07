@@ -154,6 +154,15 @@ struct SettingsView: View {
                 label: { Text("刷新间隔") },
                 optionLabel: { Text("每 \($0) 分钟") })
         }
+        Section(L("section_usage")) {
+            SettingsMenuPicker(
+                selection: Binding(
+                    get: { self.model.configuration.resetTimeDisplayStyle },
+                    set: { self.model.setResetTimeDisplayStyle($0) }),
+                options: [ResetTimeDisplayStyle.countdown, .absolute],
+                label: { Text(L("reset_times_title")) },
+                optionLabel: { Text(L($0 == .countdown ? "reset_times_countdown" : "reset_times_clock")) })
+        }
         if self.model.isDemo {
             Section { SettingsSectionFooter("演示模式使用模拟额度，不读取或修改登录文件。") }
         }
@@ -190,11 +199,22 @@ struct SettingsView: View {
                 TimelineView(.periodic(from: .now, by: 60)) { context in
                     VStack(alignment: .leading, spacing: 12) {
                         ForEach(snapshot.windows) { window in
-                            let metric = QuotaPresentation.metric(window: window, now: context.date)
+                            let metric = QuotaPresentation.metric(
+                                window: window,
+                                now: context.date,
+                                resetStyle: self.model.configuration.resetTimeDisplayStyle)
                             ProviderMetricInlineRow(
                                 metric: metric,
                                 title: metric.title,
                                 progressColor: Color(red: 73 / 255, green: 163 / 255, blue: 176 / 255))
+                        }
+                        if let credits = snapshot.resetCredits,
+                           let presentation = LimitResetCreditsPresentation.make(
+                               snapshot: credits,
+                               resetStyle: self.model.configuration.resetTimeDisplayStyle,
+                               now: context.date)
+                        {
+                            ProviderLimitResetCreditsInlineRow(presentation: presentation)
                         }
                     }
                 }
@@ -238,7 +258,7 @@ struct SettingsView: View {
                 }
                 VStack(spacing: 2) {
                     Text("CodexBar Lite").font(.title3).bold()
-                    Text("0.3.3").foregroundStyle(.secondary)
+                    Text("0.4.0").foregroundStyle(.secondary)
                     Text("基于 CodexBar 的 Codex 专用精简版").font(.footnote).foregroundStyle(.secondary)
                 }
             }

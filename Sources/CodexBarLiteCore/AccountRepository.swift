@@ -22,8 +22,24 @@ public struct Configuration: Codable, Sendable {
     public var refreshMinutes: Int = 5
     public var cliPath: String = ""
     public var codexHome: String?
+    public var resetTimeDisplayStyle: ResetTimeDisplayStyle = .countdown
 
     public init() {}
+
+    private enum CodingKeys: String, CodingKey {
+        case accounts, selectedID, refreshMinutes, cliPath, codexHome, resetTimeDisplayStyle
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.accounts = try container.decode([Account].self, forKey: .accounts)
+        self.selectedID = try container.decodeIfPresent(UUID.self, forKey: .selectedID)
+        self.refreshMinutes = try container.decode(Int.self, forKey: .refreshMinutes)
+        self.cliPath = try container.decode(String.self, forKey: .cliPath)
+        self.codexHome = try container.decodeIfPresent(String.self, forKey: .codexHome)
+        self.resetTimeDisplayStyle = try container.decodeIfPresent(
+            ResetTimeDisplayStyle.self, forKey: .resetTimeDisplayStyle) ?? .countdown
+    }
 
     public mutating func validate() throws {
         guard Set(self.accounts.map(\.id)).count == self.accounts.count,

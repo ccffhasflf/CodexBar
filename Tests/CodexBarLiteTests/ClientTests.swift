@@ -9,14 +9,16 @@ struct ClientTests {
         let transport = StubTransport([
             HTTPResponse(data: Data("{\"access_token\":\"rotated\",\"refresh_token\":\"next\"}".utf8), status: 200),
             HTTPResponse(data: Fixture.usage, status: 200),
+            HTTPResponse(data: Data(#"{"credits":[],"available_count":0}"#.utf8), status: 200),
         ])
         let client = UsageClient(repository: fixture.repository, transport: transport)
         _ = try await client.fetch(account: fixture.account)
         let requests = await transport.requests
-        #expect(requests.count == 2)
+        #expect(requests.count == 3)
         #expect(requests[0].url?.host == "auth.openai.com")
         #expect(requests[1].value(forHTTPHeaderField: "Authorization") == "Bearer rotated")
         #expect(requests[1].value(forHTTPHeaderField: "ChatGPT-Account-Id") == "account-a")
+        #expect(requests[2].value(forHTTPHeaderField: "Authorization") == "Bearer rotated")
         #expect(try Credentials.load(home: fixture.repository.home(for: fixture.account)).refreshToken == "next")
     }
 

@@ -3,7 +3,9 @@ import Foundation
 
 /// Codex-only adapter for upstream MenuCardView+ModelHelpers' paceDetail and metric construction.
 enum QuotaPresentation {
-    static func metric(window: QuotaWindow, now: Date) -> UsageMetric {
+    static func metric(
+        window: QuotaWindow, now: Date, resetStyle: ResetTimeDisplayStyle = .countdown) -> UsageMetric
+    {
         let rate = RateWindow(
             usedPercent: window.usedPercent,
             windowMinutes: window.durationSeconds.map { $0 / 60 },
@@ -23,10 +25,7 @@ enum QuotaPresentation {
         } else {
             nil
         }
-        let resetText = rate.resetsAt.map {
-            let countdown = UsageFormatter.resetCountdownDescription(from: $0, now: now)
-            return countdown == "now" ? L("Resets now") : L("Resets in %@", String(countdown.dropFirst(3)))
-        }
+        let resetText = UsageFormatter.resetLine(for: rate, style: resetStyle, now: now)
         let title: String = switch window.id {
         case "session": L("Session")
         case "weekly": L("Weekly")

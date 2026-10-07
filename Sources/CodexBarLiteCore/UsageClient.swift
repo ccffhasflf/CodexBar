@@ -70,11 +70,64 @@ public struct UsageClient: UsageLoading, Sendable {
         }
         guard response.status != 401 else { throw LiteError.loginRequired }
         guard response.status == 200 else { throw LiteError.http(response.status) }
-        let snapshot = try UsageSnapshot.decode(response.data, email: credentials.email)
+        var snapshot = try UsageSnapshot.decode(response.data, email: credentials.email, allowEmptyWindows: true)
         if let expected = credentials.accountID, let actual = snapshot.accountID, expected != actual {
             throw LiteError.accountMismatch
         }
+        snapshot.resetCredits = try await self.resetCredits(credentials)
+        guard !snapshot.windows.isEmpty || (snapshot.resetCredits?.availableInventory(at: Date()).count ?? 0) > 0 else {
+            throw LiteError.noQuota
+        }
         return snapshot
+    }
+
+    /// Upstream's read-only supplement: reuse the quota request's credentials, with no token rotation or retry.
+    /// A missing inventory must not turn a successful quota response into an error.
+    private func resetCredits(_ credentials: Credentials) async throws -> CodexRateLimitResetCreditsSnapshot? {
+        try Task.checkCancellation()
+        var request = URLRequest(
+            url: URL(string: "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits")!,
+            cachePolicy: .reloadIgnoringLocalCacheData,
+            timeoutInterval: 4)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(credentials.accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("CodexBar", forHTTPHeaderField: "User-Agent")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("codex-1", forHTTPHeaderField: "OpenAI-Beta")
+        request.setValue("Codex Desktop", forHTTPHeaderField: "originator")
+        if let id = credentials.accountID { request.setValue(id, forHTTPHeaderField: "ChatGPT-Account-ID") }
+        do {
+            let response = try await self.transport.send(request)
+            try Task.checkCancellation()
+            guard response.status == 200 else { return nil }
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .custom { decoder in
+                let container = try decoder.singleValueContainer()
+                let raw = try container.decode(String.self)
+                guard let date = ISO8601DateParser.parse(raw) else {
+                    throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid ISO-8601 date")
+                }
+                return date
+            }
+            let payload = try decoder.decode(ResetCreditsResponse.self, from: response.data)
+            guard payload.availableCount >= 0 else { return nil }
+            return CodexRateLimitResetCreditsSnapshot(
+                credits: payload.credits, availableCount: payload.availableCount, updatedAt: Date())
+        } catch {
+            try Task.checkCancellation()
+            if error is CancellationError || (error as? URLError)?.code == .cancelled { throw error }
+            return nil
+        }
+    }
+
+    private struct ResetCreditsResponse: Decodable {
+        let credits: [CodexRateLimitResetCredit]
+        let availableCount: Int
+
+        enum CodingKeys: String, CodingKey {
+            case credits
+            case availableCount = "available_count"
+        }
     }
 
     private func usage(_ credentials: Credentials) async throws -> HTTPResponse {

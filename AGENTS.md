@@ -1,7 +1,7 @@
 # CodexBar Lite
 
 A macOS 14+ Codex-only menu bar app. Follow the current native Codex auth.json automatically;
-keep quota windows, reset times, manual/timed refresh and login-at-startup.
+keep quota windows, reset times and reset-card information, manual/timed refresh and login-at-startup.
 Account backup/restore is deferred: future switching will replace auth.json and the user will restart Codex manually. Do not reintroduce cost scans, transcripts,
 WebKit, other providers, plugins, widgets or a standalone CLI without a scope change.
 

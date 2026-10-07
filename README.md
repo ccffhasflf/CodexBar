@@ -12,7 +12,7 @@ If you use another Codex home, select it in **设置 → Codex → 认证**. mac
 terminal environment variables, so choosing the directory explicitly is useful for custom homes.
 
 The original undecorated combined-style menu bar icon shows **remaining** quota. Click for 5-hour, weekly, monthly and additional
-model windows supplied by the service, plus countdowns (hover a quota row for its exact reset date). Refresh manually or
+model windows supplied by the service, plus reset countdowns or clock times (Settings → General → Usage; hover a quota row for its exact reset date). Refresh manually or
 every 1, 5, 15 or 30 minutes. Optional launch at login is available in Settings.
 The original pace stripe and reserve/deficit/estimated-exhaustion text use upstream UsagePace
 calculations from elapsed time and quota usage; no transcript scanning or stored history is needed.
@@ -44,6 +44,7 @@ All source references below are from `8ab81e2eb`; MIT attribution is retained.
 | Pace forecast | Core `UsagePace.swift`, app `UsagePaceText.swift`, `MenuCardView+ModelHelpers.swift` | Keep calculation, 3% initial-window threshold, stages and wording; specialize to Codex without history forecasts. |
 | Progress and metric rows | `UsageProgressBar.swift`, `MenuCardMetricRow.swift`, `MetricRowHeader` | Original renderer and layout, with a smaller input model. |
 | Settings metric rows | `ProviderMetricInlineRow`, `ProviderDetailInfoRow` | Original row layout, current account only. |
+| Reset information | `MenuCardView+CodexResetCredits.swift`, `ProviderLimitResetCreditsInlineRow`, Core `CreditsModels.swift` / OAuth usage fetcher | Original inventory filtering, expiry summaries, hover details, menu/settings rows and reset-time picker; current account only, read-only supplement. |
 | Refresh picker | `PreferencesMenuPicker.swift` | Original menu-backed control; supported intervals unchanged. |
 | Plan and update text | `CodexPlanFormatting.swift`, `UsageFormatter.swift`, zh-Hans strings | Original formatting helpers and translations. |
 | Settings shell / About | `PreferencesView.swift`, `SidebarResizeHandle.swift`, `PreferencesAboutPane.swift` | Preserve shell/materials/geometry and About styling; omit removed feature panes and updater. |
@@ -56,7 +57,7 @@ remains manual at the user's request; these comparisons do not claim every windo
 
 ## Scope
 
-Only Codex quota, resets, current-account following and basic settings. No local cost/token scanning,
+Only Codex quota, resets and reset-card inventory, current-account following and basic settings. No local cost/token scanning,
 transcript index, database, history chart, WebKit, browser cookies, other provider, widget, plugin,
 cloud sync, hook, independent login flow or standalone CLI product. Simplified Chinese UI, macOS 14+,
 Swift 6.2+, no third-party runtime dependencies.
@@ -109,3 +110,18 @@ Center the16px single meter at y=10 in the36px canvas, rather than upstream y=14
 This user-requested correction applies to one actual quota window; two-meter geometry remains
 unchanged and passes80bitmap comparisons with v0.55.0. No plan-name heuristic controls lane count.
 38offline tests pass, including single-meter alpha-bound vertical alignment.
+
+### Reset information (v0.4.0)
+
+Restore the upstream countdown/clock-time selector and limit reset credit inventory. The menu and
+Codex settings show active card count and expiry summaries using upstream rows and Chinese strings;
+menu hover exposes each expiry. Expired, redeemed, redeeming and unknown-status cards are excluded,
+and the row is hidden when there are no active cards, matching upstream behavior.
+
+The supplement makes one read-only GET to `/wham/rate-limit-reset-credits` with a 4-second request
+timeout and the same credentials/account as the successful quota request. It never rereads login,
+refreshes tokens or retries. Endpoint errors leave quota visible; a new success never retains an
+older inventory. Only the latest response is kept; no notification scheduling or history storage.
+Card redemption is performed in Codex, as in the upstream display-only UI. Demo mode includes a
+sample card. Offline tests cover filtering, malformed/failed responses, cancellation, account
+changes, card-only responses and persisted display style. UI verification remains manual.
