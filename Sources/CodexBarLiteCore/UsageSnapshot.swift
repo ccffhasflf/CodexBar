@@ -115,7 +115,7 @@ public enum LiteError: LocalizedError, Sendable {
 
     public var errorDescription: String? {
         switch self {
-        case .missingCredentials: "未找到 auth.json，请先登录 Codex，或添加独立账号。"
+        case .missingCredentials: "未找到 auth.json，请先在 Codex 中登录，或在设置中选择正确的登录目录。"
         case .invalidCredentials: "登录文件无效，请重新登录这个账号。"
         case .apiKeyAccount: "API Key 登录没有订阅额度，请使用 ChatGPT 账号登录。"
         case .loginRequired: "登录已过期或被撤销，请重新登录这个账号。"

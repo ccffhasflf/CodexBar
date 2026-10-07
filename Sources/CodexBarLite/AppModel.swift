@@ -19,43 +19,45 @@ struct DemoUsageClient: UsageLoading {
 @MainActor @Observable
 final class AppModel {
     private(set) var configuration: Configuration
+    private(set) var currentAccount: Account
     let refresh: RefreshController
-    let login = LoginCoordinator()
     var notice: String?
-    var isEditingAccounts = false
     var launchAtLogin = SMAppService.mainApp.status == .enabled
     let isDemo: Bool
     @ObservationIgnored private let repository: AccountRepository
+    @ObservationIgnored private let defaultHome: URL
     @ObservationIgnored private var timerTask: Task<Void, Never>?
-    @ObservationIgnored private var loginTask: Task<Void, Never>?
+    @ObservationIgnored private var followTask: Task<Void, Never>?
+    @ObservationIgnored private var monitor: CurrentLoginMonitor?
     @ObservationIgnored private var wakeObserver: NSObjectProtocol?
     @ObservationIgnored private var sleepObserver: NSObjectProtocol?
     @ObservationIgnored private var sleeping = false
     @ObservationIgnored private var stopped = false
     @ObservationIgnored private var started = false
 
-    init(repository: AccountRepository = .standard, demo: Bool = false) throws {
+    init(
+        repository: AccountRepository = .standard,
+        demo: Bool = false,
+        defaultHome: URL = CurrentCodexHome.resolve(configured: nil),
+        client: (any UsageLoading)? = nil) throws
+    {
         self.repository = repository
         self.isDemo = demo
-        if demo {
-            var config = Configuration()
-            let account = Account(name: "演示账号")
-            config.accounts = [account]
-            config.selectedID = account.id
-            self.configuration = config
-            self.refresh = RefreshController(client: DemoUsageClient())
-        } else {
-            self.configuration = try repository.load()
-            self.refresh = RefreshController(client: UsageClient(repository: repository))
-        }
+        self.defaultHome = defaultHome
+        let configuration = demo ? Configuration() : try repository.load()
+        self.configuration = configuration
+        let home = configuration.codexHome.map { URL(fileURLWithPath: $0) } ?? defaultHome
+        self.currentAccount = Account(name: "当前 Codex 登录", externalHome: home.path)
+        self.refresh = RefreshController(client: client ?? (demo
+                ? DemoUsageClient() : UsageClient(repository: repository)))
     }
 
-    var selected: Account? {
-        self.configuration.accounts.first { $0.id == self.configuration.selectedID }
+    var currentHome: URL {
+        URL(fileURLWithPath: self.currentAccount.externalHome!, isDirectory: true)
     }
 
     var status: AccountStatus? {
-        self.selected.flatMap { self.refresh.statuses[$0.id] }
+        self.refresh.statuses[self.currentAccount.id]
     }
 
     var menuTitle: String {
@@ -67,6 +69,7 @@ final class AppModel {
     func start() {
         guard !self.started else { return }
         self.started = true
+        self.startMonitor()
         self.refreshNow()
         self.schedule()
         self.wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
@@ -75,7 +78,7 @@ final class AppModel {
             Task { @MainActor in
                 guard let self else { return }
                 self.sleeping = false
-                self.refreshNow()
+                self.followCurrentLogin()
                 self.schedule()
             }
         }
@@ -94,16 +97,43 @@ final class AppModel {
     func stop() {
         self.stopped = true
         self.timerTask?.cancel()
-        self.loginTask?.cancel()
-        self.login.terminateForQuit()
+        self.followTask?.cancel()
+        self.monitor?.stop()
         if let wakeObserver { NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver) }
         if let sleepObserver { NSWorkspace.shared.notificationCenter.removeObserver(sleepObserver) }
         Task { await self.refresh.stop() }
     }
 
     func refreshNow() {
-        guard !self.isEditingAccounts, !self.sleeping, !self.stopped else { return }
-        self.refresh.refresh(self.configuration.accounts)
+        guard self.followTask == nil, !self.sleeping, !self.stopped else { return }
+        self.refresh.refresh([self.currentAccount])
+    }
+
+    private func startMonitor() {
+        self.monitor?.stop()
+        guard !self.isDemo else { return }
+        self.monitor = CurrentLoginMonitor(home: self.currentHome) { [weak self] in
+            self?.followCurrentLogin()
+        }
+        self.monitor?.start()
+    }
+
+    /// Give each credential revision a new display identity. Never show the previous account's
+    /// quota while its cancelled request is draining or the replacement account is loading.
+    func followCurrentLogin() {
+        guard !self.stopped else { return }
+        self.followTask?.cancel()
+        let home = self.configuration.codexHome.map { URL(fileURLWithPath: $0) } ?? self.defaultHome
+        let account = Account(name: "当前 Codex 登录", externalHome: home.path)
+        self.currentAccount = account
+        self.refresh.retainAccounts([])
+        self.followTask = Task { [weak self] in
+            guard let self else { return }
+            await self.refresh.stop()
+            guard !Task.isCancelled, self.currentAccount.id == account.id else { return }
+            self.followTask = nil
+            self.refreshNow()
+        }
     }
 
     private func schedule() {
@@ -123,12 +153,6 @@ final class AppModel {
         self.configuration = changed
     }
 
-    func select(_ id: UUID) {
-        var config = self.configuration
-        config.selectedID = id
-        do { try self.persist(config) } catch { self.notice = error.localizedDescription }
-    }
-
     func setInterval(_ minutes: Int) {
         guard [1, 5, 15, 30].contains(minutes) else { return }
         var config = self.configuration
@@ -136,10 +160,14 @@ final class AppModel {
         do { try self.persist(config); self.schedule() } catch { self.notice = error.localizedDescription }
     }
 
-    func setCLI(_ path: String) {
+    func setHome(_ home: URL?) {
         var config = self.configuration
-        config.cliPath = path
-        do { try self.persist(config) } catch { self.notice = error.localizedDescription }
+        config.codexHome = home?.standardizedFileURL.path
+        do {
+            try self.persist(config)
+            self.followCurrentLogin()
+            self.startMonitor()
+        } catch { self.notice = error.localizedDescription }
     }
 
     func setLaunchAtLogin(_ enabled: Bool) {
@@ -150,85 +178,6 @@ final class AppModel {
             if SMAppService.mainApp.status == .requiresApproval {
                 self.notice = "请在系统设置 → 通用 → 登录项中允许 CodexBar Lite。"
             }
-        } catch { self.notice = error.localizedDescription }
-    }
-
-    func link(home: URL) {
-        guard !self.isDemo else { return }
-        let path = home.standardizedFileURL.path
-        if let existing = self.configuration.accounts.first(where: { $0.externalHome == path }) {
-            self.select(existing.id)
-            return
-        }
-        var account = Account(name: "现有 Codex 登录", externalHome: path)
-        do {
-            account.name = try self.repository.loginLabel(for: account)
-            var config = self.configuration
-            config.accounts.append(account)
-            config.selectedID = account.id
-            try self.persist(config)
-            self.refreshNow()
-        } catch { self.notice = error.localizedDescription }
-    }
-
-    func addAccount(replacing old: Account? = nil) {
-        guard self.loginTask == nil, !self.isEditingAccounts, !self.isDemo else { return }
-        self.notice = nil
-        let account = Account(name: "新账号")
-        self.loginTask = Task { [weak self] in
-            guard let self else { return }
-            defer { self.loginTask = nil }
-            do {
-                try self.repository.prepare(account)
-                try await self.login.run(
-                    home: self.repository.home(for: account),
-                    configured: self.configuration.cliPath)
-                var added = account
-                added.name = try self.repository.loginLabel(for: account)
-                self.isEditingAccounts = true
-                await self.refresh.stop()
-                defer { self.isEditingAccounts = false }
-                var config = self.configuration
-                if let old { config.accounts.removeAll { $0.id == old.id } }
-                config.accounts.append(added)
-                config.selectedID = added.id
-                try self.persist(config)
-                self.refresh.retainAccounts(config.accounts)
-                if let old { try self.repository.removeCredentials(for: old) }
-            } catch is CancellationError {
-                try? self.repository.removeCredentials(for: account)
-            } catch {
-                self.notice = error.localizedDescription
-                // Never delete credentials after the new account has been committed to config.
-                if !self.configuration.accounts.contains(where: { $0.id == account.id }) {
-                    try? self.repository.removeCredentials(for: account)
-                }
-            }
-            self.refreshNow()
-        }
-    }
-
-    func rename(_ account: Account, to name: String) {
-        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else { return }
-        var config = self.configuration
-        guard let index = config.accounts.firstIndex(where: { $0.id == account.id }) else { return }
-        config.accounts[index].name = name
-        do { try self.persist(config) } catch { self.notice = error.localizedDescription }
-    }
-
-    func remove(_ account: Account) async {
-        guard !self.isEditingAccounts, !self.login.isRunning else { return }
-        self.isEditingAccounts = true
-        await self.refresh.stop()
-        defer { self.isEditingAccounts = false; self.refreshNow() }
-        var config = self.configuration
-        config.accounts.removeAll { $0.id == account.id }
-        if config.selectedID == account.id { config.selectedID = config.accounts.first?.id }
-        do {
-            try self.persist(config)
-            self.refresh.retainAccounts(config.accounts)
-            if !self.isDemo { try self.repository.removeCredentials(for: account) }
         } catch { self.notice = error.localizedDescription }
     }
 }

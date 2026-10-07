@@ -17,22 +17,10 @@ struct MenuView: View {
             if self.model.isDemo {
                 Text("演示模式 · 模拟额度").font(.caption).foregroundStyle(.orange)
             }
-            if !self.model.configuration.accounts.isEmpty {
-                Picker("账号", selection: Binding(
-                    get: { self.model.configuration.selectedID },
-                    set: { if let id = $0 { self.model.select(id) } }))
-                {
-                    ForEach(self.model.configuration.accounts) { account in
-                        Text(account.name).tag(Optional(account.id))
-                    }
-                }
-                .labelsHidden()
-                .accessibilityLabel("查看账号")
-            }
             if let status = self.model.status {
                 if let snapshot = status.snapshot {
                     HStack {
-                        Text(snapshot.email ?? self.model.selected?.name ?? "Codex")
+                        Text(snapshot.email ?? self.model.currentAccount.name)
                             .lineLimit(1).truncationMode(.middle)
                         Spacer()
                         Text((snapshot.plan ?? "Codex").capitalized)
@@ -64,8 +52,7 @@ struct MenuView: View {
                     Text("正在获取额度…").foregroundStyle(.secondary)
                 }
             } else {
-                Text(self.model.configuration.accounts.isEmpty
-                    ? "添加 Codex 账号，查看剩余额度和重置时间。" : "等待刷新…")
+                Text("正在读取当前 Codex 登录…")
                     .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Divider()
@@ -73,7 +60,7 @@ struct MenuView: View {
                 Button { self.model.refreshNow() } label: {
                     Label("刷新", systemImage: "arrow.clockwise")
                 }
-                .disabled(self.model.refresh.isRefreshing || self.model.configuration.accounts.isEmpty)
+                .disabled(self.model.refresh.isRefreshing)
                 Spacer()
                 Button("设置") {
                     self.openWindow(id: "settings")

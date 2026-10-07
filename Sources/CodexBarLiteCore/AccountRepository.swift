@@ -21,6 +21,7 @@ public struct Configuration: Codable, Sendable {
     public var selectedID: UUID?
     public var refreshMinutes: Int = 5
     public var cliPath: String = ""
+    public var codexHome: String?
 
     public init() {}
 

@@ -36,7 +36,7 @@ struct CodexBarLiteApp: App {
         Window("CodexBar Lite 设置", id: "settings") {
             SettingsView(model: self.model)
         }
-        .defaultSize(width: 560, height: 540)
+        .defaultSize(width: 560, height: 520)
         .windowResizability(.contentSize)
     }
 }

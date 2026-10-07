@@ -18,14 +18,18 @@ cat > "$DESTINATION/Contents/Info.plist" <<'PLIST'
 <key>CFBundleExecutable</key><string>CodexBarLite</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleIconFile</key><string>Icon</string>
-<key>CFBundleShortVersionString</key><string>0.1.0</string>
-<key>CFBundleVersion</key><string>1</string>
+<key>CFBundleShortVersionString</key><string>0.2.0</string>
+<key>CFBundleVersion</key><string>2</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST
 plutil -lint "$DESTINATION/Contents/Info.plist"
+# Finder may attach metadata when a previous local bundle was inspected.
+# These two attributes are prohibited by codesign on the generated bundle.
+xattr -r -d com.apple.FinderInfo "$DESTINATION" 2>/dev/null || true
+xattr -r -d com.apple.ResourceFork "$DESTINATION" 2>/dev/null || true
 codesign --force --sign - "$DESTINATION"
 codesign --verify --strict "$DESTINATION"
 printf 'Built %s\n' "$DESTINATION"
