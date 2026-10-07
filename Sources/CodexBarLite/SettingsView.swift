@@ -238,7 +238,7 @@ struct SettingsView: View {
                 }
                 VStack(spacing: 2) {
                     Text("CodexBar Lite").font(.title3).bold()
-                    Text("0.3.2").foregroundStyle(.secondary)
+                    Text("0.3.3").foregroundStyle(.secondary)
                     Text("基于 CodexBar 的 Codex 专用精简版").font(.footnote).foregroundStyle(.secondary)
                 }
             }

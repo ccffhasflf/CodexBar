@@ -102,3 +102,10 @@ Antigravity enabled; UsageStore selects the combined visual style for multiple e
 Lite now preserves that undecorated style, while still fetching Codex only. v0.3.1 incorrectly
 forced the single-provider Codex face. The raw v0.55.0 combined renderer now also passes all120
 bitmap comparisons against Lite. Quota availability still determines one-meter vs two-meter layout.
+
+### Single-quota alignment (v0.3.3)
+
+Center the16px single meter at y=10 in the36px canvas, rather than upstream y=14.
+This user-requested correction applies to one actual quota window; two-meter geometry remains
+unchanged and passes80bitmap comparisons with v0.55.0. No plan-name heuristic controls lane count.
+38offline tests pass, including single-meter alpha-bound vertical alignment.
