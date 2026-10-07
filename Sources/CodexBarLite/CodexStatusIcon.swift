@@ -1,7 +1,8 @@
 import AppKit
 import CodexBarLiteCore
 
-/// Adapts Lite's quota data to the upstream Codex icon-window policy and renderer.
+/// Preserve the original installed app's combined (undecorated) icon style.
+/// Data still comes only from Codex; visual style does not require multiple providers.
 enum CodexStatusIcon {
     static func values(windows: [QuotaWindow], now: Date) -> (primary: Double?, secondary: Double?) {
         // CodexProviderDescriptor.visibleWindows: weekly exhaustion caps the session,

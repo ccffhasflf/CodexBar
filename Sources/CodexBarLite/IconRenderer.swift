@@ -56,6 +56,7 @@ enum IconRenderer {
         primaryRemaining: Double?,
         weeklyRemaining: Double?,
         stale: Bool,
+        showFace: Bool = false,
         blink: CGFloat = 0,
         tilt: CGFloat = 0) -> NSImage
     {
@@ -187,19 +188,19 @@ enum IconRenderer {
             let creditsRectPx = RectPx(x: barXPx, y: 14, w: barWidthPx, h: 16)
             let creditsBottomRectPx = RectPx(x: barXPx, y: 4, w: barWidthPx, h: 6)
             if let weeklyRemaining, weeklyRemaining > 0, primaryRemaining == nil {
-                drawBar(rectPx: creditsRectPx, remaining: weeklyRemaining, addFace: true, blink: blink)
+                drawBar(rectPx: creditsRectPx, remaining: weeklyRemaining, addFace: showFace, blink: blink)
             } else if let weeklyRemaining, weeklyRemaining > 0 {
-                drawBar(rectPx: topRectPx, remaining: primaryRemaining, addFace: true, blink: blink)
+                drawBar(rectPx: topRectPx, remaining: primaryRemaining, addFace: showFace, blink: blink)
                 drawBar(rectPx: bottomRectPx, remaining: weeklyRemaining)
             } else if weeklyRemaining == nil {
                 if let primaryRemaining {
-                    drawBar(rectPx: creditsRectPx, remaining: primaryRemaining, addFace: true, blink: blink)
+                    drawBar(rectPx: creditsRectPx, remaining: primaryRemaining, addFace: showFace, blink: blink)
                 } else {
-                    drawBar(rectPx: topRectPx, remaining: primaryRemaining, addFace: true, blink: blink)
+                    drawBar(rectPx: topRectPx, remaining: primaryRemaining, addFace: showFace, blink: blink)
                     drawBar(rectPx: bottomRectPx, remaining: nil, alpha: 0.45)
                 }
             } else {
-                drawBar(rectPx: topRectPx, remaining: primaryRemaining, addFace: true, blink: blink)
+                drawBar(rectPx: topRectPx, remaining: primaryRemaining, addFace: showFace, blink: blink)
                 drawBar(rectPx: creditsBottomRectPx, remaining: weeklyRemaining)
             }
         }

@@ -11,7 +11,7 @@ variable is absent. No account setup, separate login or Codex CLI executable is 
 If you use another Codex home, select it in **设置 → Codex → 认证**. macOS GUI apps may not inherit
 terminal environment variables, so choosing the directory explicitly is useful for custom homes.
 
-The original Codex two-meter menu bar icon shows **remaining** quota. Click for 5-hour, weekly, monthly and additional
+The original undecorated combined-style menu bar icon shows **remaining** quota. Click for 5-hour, weekly, monthly and additional
 model windows supplied by the service, plus countdowns (hover a quota row for its exact reset date). Refresh manually or
 every 1, 5, 15 or 30 minutes. Optional launch at login is available in Settings.
 The original pace stripe and reserve/deficit/estimated-exhaustion text use upstream UsagePace
@@ -94,3 +94,11 @@ version's newly added file-monitor lifecycle; they are not a promise of multi-da
 `Sources/CodexBarLite` owns the native UI and lifecycle. Upstream decoding and credential conventions
 are retained. Future upstream fixes should be selectively ported rather than merging the complete
 multi-provider app back in.
+
+### Installed-original style correction (v0.3.2)
+
+The installed original is v0.55.0. Its saved settings enable mergeIcons with Codex, Gemini and
+Antigravity enabled; UsageStore selects the combined visual style for multiple enabled providers.
+Lite now preserves that undecorated style, while still fetching Codex only. v0.3.1 incorrectly
+forced the single-provider Codex face. The raw v0.55.0 combined renderer now also passes all120
+bitmap comparisons against Lite. Quota availability still determines one-meter vs two-meter layout.
