@@ -8,11 +8,11 @@ baseline `8ab81e2eb` (2026-10-07), with upstream Git history and MIT license ret
 
 Open **CodexBar Lite.app**. It immediately reads `auth.json` in `CODEX_HOME`, or `~/.codex` if that
 variable is absent. No account setup, separate login or Codex CLI executable is required.
-If you use another Codex home, select it in **设置 → 登录来源**. macOS GUI apps may not inherit
+If you use another Codex home, select it in **设置 → Codex → 认证**. macOS GUI apps may not inherit
 terminal environment variables, so choosing the directory explicitly is useful for custom homes.
 
-The menu bar percentage means **remaining**, not used. Click for 5-hour, weekly, monthly and additional
-model windows supplied by the service, plus countdowns and exact reset dates. Refresh manually or
+The original Codex two-meter menu bar icon shows **remaining** quota. Click for 5-hour, weekly, monthly and additional
+model windows supplied by the service, plus countdowns (hover a quota row for its exact reset date). Refresh manually or
 every 1, 5, 15 or 30 minutes. Optional launch at login is available in Settings.
 
 When Codex changes its auth file, Lite clears the previous account's display, cancels its pending
@@ -24,6 +24,13 @@ The auth file is read-only. Lite does not save account copies, modify it, rotate
 or switch the Codex App/CLI login. If it expires, reauthenticate in Codex. Keychain-only and API-key
 logins are not supported. The previous version's managed accounts are preserved on disk but are not
 used by this version; any old selection is ignored in favor of the current native login.
+
+## Interface
+
+The native NSMenu, 310pt quota card, 6pt progress bars, Codex icon geometry, and 880×620 settings
+sidebar retain upstream CodexBar styling. Settings keep General, Codex and About; removed features
+do not leave empty tabs. Upstream settings materials, sizing, sidebar resize handle and metric-header
+layout are reused. `--settings` opens Settings at launch for UI verification.
 
 ## Scope
 
@@ -42,7 +49,7 @@ or live-process account promotion is planned.
 make check     # pinned upstream SwiftFormat + SwiftLint
 make test      # offline fixtures only; no real credential reads or network calls
 make package   # .build/CodexBar Lite.app, release build + ad-hoc signature verification
-open '.build/CodexBar Lite.app' --args --demo
+open '.build/CodexBar Lite.app' --args --demo --settings
 ```
 
 `--demo` uses in-memory sample quota, skips file monitoring, and does not read real credentials,

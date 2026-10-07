@@ -1,58 +1,45 @@
 import AppKit
-import SwiftUI
 
 @main
-struct CodexBarLiteApp: App {
-    @NSApplicationDelegateAdaptor(LiteAppDelegate.self) private var delegate
-    @State private var model: AppModel
-
-    init() {
-        do {
-            let demo = CommandLine.arguments.contains("--demo")
-            _model = try State(initialValue: AppModel(demo: demo))
-        } catch {
-            let alert = NSAlert()
-            alert.messageText = "CodexBar Lite 无法加载配置"
-            alert.informativeText = error.localizedDescription
-            alert.runModal()
-            exit(1)
-        }
-    }
-
-    var body: some Scene {
-        MenuBarExtra {
-            MenuView(model: self.model)
-                .onAppear { self.delegate.model = self.model }
-        } label: {
-            Text(self.model.menuTitle)
-                .monospacedDigit()
-                .task {
-                    self.delegate.model = self.model
-                    self.model.start()
-                }
-        }
-        .menuBarExtraStyle(.window)
-
-        Window("CodexBar Lite 设置", id: "settings") {
-            SettingsView(model: self.model)
-        }
-        .defaultSize(width: 560, height: 520)
-        .windowResizability(.contentSize)
+@MainActor
+enum CodexBarLiteApp {
+    static func main() {
+        let application = NSApplication.shared
+        let delegate = LiteAppDelegate()
+        application.delegate = delegate
+        application.setActivationPolicy(.accessory)
+        withExtendedLifetime(delegate) { application.run() }
     }
 }
 
 @MainActor
 final class LiteAppDelegate: NSObject, NSApplicationDelegate {
-    weak var model: AppModel?
+    private var model: AppModel?
+    private var controller: StatusItemController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
         if let identifier = Bundle.main.bundleIdentifier {
             let others = NSRunningApplication.runningApplications(withBundleIdentifier: identifier)
                 .filter { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }
-            if !others.isEmpty { NSApp.terminate(nil) }
+            if !others.isEmpty { NSApp.terminate(nil); return }
+        }
+        do {
+            let model = try AppModel(demo: CommandLine.arguments.contains("--demo"))
+            self.model = model
+            self.controller = StatusItemController(model: model)
+            model.start()
+            if CommandLine.arguments.contains("--settings") { self.controller?.showSettings() }
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = "CodexBar Lite 无法加载配置"
+            alert.informativeText = error.localizedDescription
+            alert.runModal()
+            NSApp.terminate(nil)
         }
     }
 
-    func applicationWillTerminate(_ notification: Notification) { self.model?.stop() }
+    func applicationWillTerminate(_ notification: Notification) {
+        self.controller?.stop()
+        self.model?.stop()
+    }
 }

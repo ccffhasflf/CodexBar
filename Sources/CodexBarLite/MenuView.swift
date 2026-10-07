@@ -1,101 +1,122 @@
+// Codex-only adaptation of upstream UsageMenuCardView / MetricRow (MIT).
 import AppKit
 import CodexBarLiteCore
 import SwiftUI
 
 struct MenuView: View {
     @Bindable var model: AppModel
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Label("CodexBar Lite", systemImage: "chart.bar.fill")
-                    .font(.headline)
-                Spacer()
-                if self.model.refresh.isRefreshing { ProgressView().controlSize(.small) }
-            }
-            if self.model.isDemo {
-                Text("演示模式 · 模拟额度").font(.caption).foregroundStyle(.orange)
-            }
-            if let status = self.model.status {
-                if let snapshot = status.snapshot {
-                    HStack {
-                        Text(snapshot.email ?? self.model.currentAccount.name)
-                            .lineLimit(1).truncationMode(.middle)
-                        Spacer()
-                        Text((snapshot.plan ?? "Codex").capitalized)
-                            .font(.caption.weight(.medium))
-                            .padding(.horizontal, 8).padding(.vertical, 3)
-                            .background(.quaternary, in: Capsule())
-                    }
-                    TimelineView(.periodic(from: .now, by: 60)) { context in
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 16) {
-                                ForEach(snapshot.windows) { window in
-                                    QuotaView(window: window, now: context.date)
-                                }
-                            }
+        TimelineView(.periodic(from: .now, by: 60)) { context in
+            VStack(alignment: .leading, spacing: 0) {
+                self.header
+                if let snapshot = self.model.status?.snapshot {
+                    Divider()
+                        .padding(.top, UsageMenuCardLayout.headerContentSpacing)
+                        .padding(.bottom, UsageMenuCardLayout.postHeaderDividerContentSpacing)
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(snapshot.windows) { window in
+                            QuotaView(window: window, now: context.date)
                         }
-                        .frame(maxHeight: 320)
                     }
-                    .opacity(status.error == nil ? 1 : 0.5)
-                    Text("更新于 \(snapshot.updatedAt.formatted(date: .omitted, time: .shortened))")
-                        .font(.caption).foregroundStyle(.secondary)
+                    .opacity(self.model.status?.error == nil ? 1 : 0.5)
                 }
-                if let error = status.error {
-                    Text(error).font(.callout).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
-                    if status.snapshot != nil {
-                        Text("上方为上次成功获取的数据").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-                if status.snapshot == nil, status.error == nil {
-                    Text("正在获取额度…").foregroundStyle(.secondary)
-                }
-            } else {
-                Text("正在读取当前 Codex 登录…")
-                    .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
-            Divider()
-            HStack {
-                Button { self.model.refreshNow() } label: {
-                    Label("刷新", systemImage: "arrow.clockwise")
-                }
-                .disabled(self.model.refresh.isRefreshing)
-                Spacer()
-                Button("设置") {
-                    self.openWindow(id: "settings")
-                    NSApp.activate(ignoringOtherApps: true)
-                }
-                Button("退出") { NSApp.terminate(nil) }
-            }
-            .buttonStyle(.borderless)
+            .padding(.horizontal, UsageMenuCardLayout.horizontalPadding)
+            .padding(.vertical, UsageMenuCardLayout.sectionTopPadding)
+            .frame(width: 310, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(20)
-        .frame(width: 360)
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: UsageMenuCardLayout.headerLineSpacing) {
+            HStack(alignment: .firstTextBaseline, spacing: UsageMenuCardLayout.headerColumnSpacing) {
+                Text("Codex").font(.headline).fontWeight(.semibold)
+                    .lineLimit(1).layoutPriority(1)
+                Spacer()
+                Text(self.model.status?.snapshot?.email ?? "当前登录")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.middle)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: UsageMenuCardLayout.headerColumnSpacing) {
+                Text(self.subtitle)
+                    .font(.footnote)
+                    .foregroundStyle(self.model.status?.error == nil ? Color.secondary : Color.red)
+                    .lineLimit(self.model.status?.error == nil ? 1 : 4)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .layoutPriority(1)
+                Spacer()
+                if let plan = self.model.status?.snapshot?.plan {
+                    Text(plan.capitalized).font(.footnote).foregroundStyle(.secondary)
+                        .lineLimit(1).layoutPriority(2)
+                }
+            }
+            if self.model.status?.error != nil, self.model.status?.snapshot != nil {
+                Text("上次成功获取的数据").font(.footnote).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var subtitle: String {
+        if self.model.refresh.isRefreshing { return "正在刷新…" }
+        if let error = self.model.status?.error { return error }
+        guard let snapshot = self.model.status?.snapshot else { return "正在读取当前登录…" }
+        if self.model.isDemo { return "演示 · 更新于 \(snapshot.updatedAt.formatted(date: .omitted, time: .shortened))" }
+        return "更新于 \(snapshot.updatedAt.formatted(date: .omitted, time: .shortened))"
     }
 }
 
-private struct QuotaView: View {
+struct QuotaView: View {
     let window: QuotaWindow
     let now: Date
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack {
-                Text(self.window.title).font(.callout.weight(.medium))
-                Spacer()
-                Text("剩余 \(self.window.roundedRemaining)%").monospacedDigit()
-            }
-            ProgressView(value: self.window.remainingPercent, total: 100)
-                .tint(self.window.remainingPercent <= 10 ? .orange : .teal)
-            HStack {
-                Text(self.window.resetLabel(now: self.now))
-                Spacer()
-                if let date = self.window.resetsAt {
-                    Text(date.formatted(.dateTime.month().day().hour().minute()))
-                }
-            }
-            .font(.caption).foregroundStyle(.secondary)
+        let title = "\(self.title) 剩余 \(self.window.roundedRemaining)%"
+        let reset = self.window.resetLabel(now: self.now)
+        VStack(alignment: .leading, spacing: 6) {
+            MetricRowHeader(
+                title: title,
+                layoutTitle: title,
+                resetText: reset,
+                layoutResetText: reset,
+                isHighlighted: false)
+            UsageProgressBar(percent: self.window.remainingPercent)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .help(self.window.resetsAt?.formatted(date: .abbreviated, time: .shortened) ?? "重置时间未知")
+    }
+
+    private var title: String {
+        switch self.window.id {
+        case "session": "会话"
+        case "weekly": "每周"
+        case "monthly": "每月"
+        default: self.window.title
+        }
+    }
+}
+
+/// Original 6pt Canvas track and Codex brand tint; optional pace/history markers removed.
+struct UsageProgressBar: View {
+    let percent: Double
+
+    var body: some View {
+        Canvas { context, size in
+            let corner = CGSize(width: size.height / 2, height: size.height / 2)
+            let rect = CGRect(origin: .zero, size: size)
+            context.fill(
+                Path(roundedRect: rect, cornerSize: corner),
+                with: .color(Color(nsColor: .tertiaryLabelColor).opacity(0.22)))
+            let fillWidth = size.width * max(0, min(100, self.percent)) / 100
+            if fillWidth > 0 {
+                context.fill(
+                    Path(roundedRect: CGRect(x: 0, y: 0, width: fillWidth, height: size.height), cornerSize: corner),
+                    with: .color(Color(red: 73 / 255, green: 163 / 255, blue: 176 / 255)))
+            }
+        }
+        .frame(height: 6)
+        .accessibilityLabel("剩余额度")
+        .accessibilityValue("\(Int(self.percent.rounded()))%")
     }
 }

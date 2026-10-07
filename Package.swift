@@ -7,6 +7,8 @@ let package = Package(
     products: [.executable(name: "CodexBarLite", targets: ["CodexBarLite"])],
     targets: [
         .target(name: "CodexBarLiteCore"),
-        .executableTarget(name: "CodexBarLite", dependencies: ["CodexBarLiteCore"]),
+        .executableTarget(
+            name: "CodexBarLite", dependencies: ["CodexBarLiteCore"],
+            resources: [.copy("Resources/ProviderIcon-codex.svg")]),
         .testTarget(name: "CodexBarLiteTests", dependencies: ["CodexBarLiteCore", "CodexBarLite"]),
     ])

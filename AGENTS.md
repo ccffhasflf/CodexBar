@@ -5,6 +5,8 @@ keep quota windows, reset times, manual/timed refresh and login-at-startup.
 Account backup/restore is deferred: future switching will replace auth.json and the user will restart Codex manually. Do not reintroduce cost scans, transcripts,
 WebKit, other providers, plugins, widgets or a standalone CLI without a scope change.
 
+Preserve upstream CodexBar menu and settings UI; simplify functionality, not the visual design.
+
 ## Structure
 - `Sources/CodexBarLiteCore`: quota parsing, HTTP, native credential files, accounts and refresh state.
 - `Sources/CodexBarLite`: SwiftUI menu/settings and app lifecycle.

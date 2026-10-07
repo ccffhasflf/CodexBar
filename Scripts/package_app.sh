@@ -6,6 +6,7 @@ BIN_DIR="$(swift build -c release --show-bin-path)"
 DESTINATION="${1:-.build/CodexBar Lite.app}"
 mkdir -p "$DESTINATION/Contents/MacOS" "$DESTINATION/Contents/Resources"
 cp "$BIN_DIR/CodexBarLite" "$DESTINATION/Contents/MacOS/CodexBarLite"
+ditto "$BIN_DIR/CodexBarLite_CodexBarLite.bundle" "$DESTINATION/Contents/Resources/CodexBarLite_CodexBarLite.bundle"
 cp Icon.icns "$DESTINATION/Contents/Resources/Icon.icns"
 cp LICENSE "$DESTINATION/Contents/Resources/LICENSE"
 cat > "$DESTINATION/Contents/Info.plist" <<'PLIST'
@@ -18,8 +19,8 @@ cat > "$DESTINATION/Contents/Info.plist" <<'PLIST'
 <key>CFBundleExecutable</key><string>CodexBarLite</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleIconFile</key><string>Icon</string>
-<key>CFBundleShortVersionString</key><string>0.2.0</string>
-<key>CFBundleVersion</key><string>2</string>
+<key>CFBundleShortVersionString</key><string>0.3.0</string>
+<key>CFBundleVersion</key><string>3</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>
